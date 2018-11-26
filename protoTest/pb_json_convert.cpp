@@ -1,12 +1,36 @@
-// File:        convert.cpp
+// File:        pb_json_convert.cpp
 // Description: This imply file for protobuf message and json interconversion
 // Notes:       ---
-// Author:      cuiguanghui 
+// Author:      cuiguanghui <guanghui.cui@freemud.cn>
 // Revision:    2018-11-23 by cuiguanghui
 
-#include "pbJsonConvert.h"
+#include "pb_json_convert.h"
+#include "../pbFile/person.pb.h"
 
-bool pbJsonConvert::Json2Pb(const rapidjson::Value& json, ProtobufMsg& message, bool str2enum) {
+bool converter::json_to_pb(const std::string& json, protobuf_msg& message)
+{
+	rapidjson::Document document;
+	document.Parse(json.data());
+	if (!document.HasParseError())
+	{
+		_json_to_pb(document, message);
+		return true;
+	}
+	return false;
+}
+
+void converter::pb_to_json(const protobuf_msg& message, std::string& json)
+{
+	rapidjson::Value root(rapidjson::kObjectType);
+	rapidjson::Document doc;
+	_pb_to_json(message, root, doc,true);
+	rapidjson::StringBuffer buffer;
+	rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+	root.Accept(writer);
+	json = buffer.GetString();
+}
+
+bool converter::_json_to_pb(const rapidjson::Value& json, protobuf_msg& message, bool str2enum) {
     auto descriptor = message.GetDescriptor();
     auto reflection = message.GetReflection();
     if (nullptr == descriptor || nullptr == reflection) return false;
@@ -25,13 +49,13 @@ bool pbJsonConvert::Json2Pb(const rapidjson::Value& json, ProtobufMsg& message, 
 				return false;
 			}
 			else {
-				Json2RepeatedPb(value->value, message, field, reflection, str2enum);
+				_json_to_repeated_pb(value->value, message, field, reflection, str2enum);
 				continue;
 			}
 		}
 
         switch (field->type()) {
-            case ProtobufFieldDescriptor::TYPE_BOOL: {
+            case protobuf_field_descriptor::TYPE_BOOL: {
                 if (value->value.IsBool())
                     reflection->SetBool(&message, field, value->value.GetBool());
                 else if (value->value.IsInt())
@@ -44,7 +68,7 @@ bool pbJsonConvert::Json2Pb(const rapidjson::Value& json, ProtobufMsg& message, 
                 }
             } break;
 
-            case ProtobufFieldDescriptor::TYPE_ENUM: {
+            case protobuf_field_descriptor::TYPE_ENUM: {
                 auto const* pedesc = field->enum_type();
                 const ::google::protobuf::EnumValueDescriptor* pevdesc = nullptr;
 
@@ -59,42 +83,42 @@ bool pbJsonConvert::Json2Pb(const rapidjson::Value& json, ProtobufMsg& message, 
                 }
             } break;
 
-            case ProtobufFieldDescriptor::TYPE_INT32:
-            case ProtobufFieldDescriptor::TYPE_SINT32:
-            case ProtobufFieldDescriptor::TYPE_SFIXED32: {
+            case protobuf_field_descriptor::TYPE_INT32:
+            case protobuf_field_descriptor::TYPE_SINT32:
+            case protobuf_field_descriptor::TYPE_SFIXED32: {
                 if (value->value.IsInt()) reflection->SetInt32(&message, field, value->value.GetInt());
             } break;
 
-            case ProtobufFieldDescriptor::TYPE_UINT32:
-            case ProtobufFieldDescriptor::TYPE_FIXED32: {
+            case protobuf_field_descriptor::TYPE_UINT32:
+            case protobuf_field_descriptor::TYPE_FIXED32: {
                 if (value->value.IsUint()) reflection->SetUInt32(&message, field, value->value.GetUint());
             } break;
 
-            case ProtobufFieldDescriptor::TYPE_INT64:
-            case ProtobufFieldDescriptor::TYPE_SINT64:
-            case ProtobufFieldDescriptor::TYPE_SFIXED64: {
+            case protobuf_field_descriptor::TYPE_INT64:
+            case protobuf_field_descriptor::TYPE_SINT64:
+            case protobuf_field_descriptor::TYPE_SFIXED64: {
                 if (value->value.IsInt64()) reflection->SetInt64(&message, field, value->value.GetInt64());
             } break;
-            case ProtobufFieldDescriptor::TYPE_UINT64:
-            case ProtobufFieldDescriptor::TYPE_FIXED64: {
+            case protobuf_field_descriptor::TYPE_UINT64:
+            case protobuf_field_descriptor::TYPE_FIXED64: {
                 if (value->value.IsUint64()) reflection->SetUInt64(&message, field, value->value.GetUint64());
             } break;
 
-            case ProtobufFieldDescriptor::TYPE_FLOAT: {
+            case protobuf_field_descriptor::TYPE_FLOAT: {
                 if (value->value.IsFloat()) reflection->SetFloat(&message, field, value->value.GetFloat());
             } break;
 
-            case ProtobufFieldDescriptor::TYPE_DOUBLE: {
+            case protobuf_field_descriptor::TYPE_DOUBLE: {
                 if (value->value.IsDouble()) reflection->SetDouble(&message, field, value->value.GetDouble());
             } break;
 
-            case ProtobufFieldDescriptor::TYPE_STRING:
-            case ProtobufFieldDescriptor::TYPE_BYTES: {
+            case protobuf_field_descriptor::TYPE_STRING:
+            case protobuf_field_descriptor::TYPE_BYTES: {
                 if (value->value.IsString()) reflection->SetString(&message, field, value->value.GetString());
             } break;
 
-            case ProtobufFieldDescriptor::TYPE_MESSAGE: {
-                if (value->value.IsObject()) Json2Pb(value->value, *reflection->MutableMessage(&message, field));
+            case protobuf_field_descriptor::TYPE_MESSAGE: {
+                if (value->value.IsObject()) _json_to_pb(value->value, *reflection->MutableMessage(&message, field));
             } break;
 
             default:
@@ -104,12 +128,12 @@ bool pbJsonConvert::Json2Pb(const rapidjson::Value& json, ProtobufMsg& message, 
     return true;
 }
 
-bool pbJsonConvert::Json2RepeatedPb(const rapidjson::Value& json, ProtobufMsg& message, const ProtobufFieldDescriptor* field,
-                                   const ProtobufReflection* reflection, bool str2enum) {	
+bool converter::_json_to_repeated_pb(const rapidjson::Value& json, protobuf_msg& message, const protobuf_field_descriptor* field,
+                                   const protobuf_reflection* reflection, bool str2enum) {
     int count = json.Size();
     for (auto j = 0; j < count; ++j) {
         switch (field->type()) {
-            case ProtobufFieldDescriptor::TYPE_BOOL: {
+            case protobuf_field_descriptor::TYPE_BOOL: {
                 if (json[j].IsBool())
                     reflection->AddBool(&message, field, json[j].GetBool());
                 else if (json[j].IsInt())
@@ -122,7 +146,7 @@ bool pbJsonConvert::Json2RepeatedPb(const rapidjson::Value& json, ProtobufMsg& m
                 }
             } break;
 
-            case ProtobufFieldDescriptor::TYPE_ENUM: {
+            case protobuf_field_descriptor::TYPE_ENUM: {
                 auto const* pedesc = field->enum_type();
                 const ::google::protobuf::EnumValueDescriptor* pevdesc = nullptr;
                 if (str2enum) {
@@ -137,42 +161,42 @@ bool pbJsonConvert::Json2RepeatedPb(const rapidjson::Value& json, ProtobufMsg& m
 
             } break;
 
-            case ProtobufFieldDescriptor::TYPE_INT32:
-            case ProtobufFieldDescriptor::TYPE_SINT32:
-            case ProtobufFieldDescriptor::TYPE_SFIXED32: {
+            case protobuf_field_descriptor::TYPE_INT32:
+            case protobuf_field_descriptor::TYPE_SINT32:
+            case protobuf_field_descriptor::TYPE_SFIXED32: {
                 if (json[j].IsInt()) reflection->AddInt32(&message, field, json[j].GetInt());
             } break;
 
-            case ProtobufFieldDescriptor::TYPE_UINT32:
-            case ProtobufFieldDescriptor::TYPE_FIXED32: {
+            case protobuf_field_descriptor::TYPE_UINT32:
+            case protobuf_field_descriptor::TYPE_FIXED32: {
                 if (json[j].IsUint()) reflection->AddUInt32(&message, field, json[j].GetUint());
             } break;
 
-            case ProtobufFieldDescriptor::TYPE_INT64:
-            case ProtobufFieldDescriptor::TYPE_SINT64:
-            case ProtobufFieldDescriptor::TYPE_SFIXED64: {
+            case protobuf_field_descriptor::TYPE_INT64:
+            case protobuf_field_descriptor::TYPE_SINT64:
+            case protobuf_field_descriptor::TYPE_SFIXED64: {
                 if (json[j].IsInt64()) reflection->AddInt64(&message, field, json[j].GetInt64());
             } break;
 
-            case ProtobufFieldDescriptor::TYPE_UINT64:
-            case ProtobufFieldDescriptor::TYPE_FIXED64: {
+            case protobuf_field_descriptor::TYPE_UINT64:
+            case protobuf_field_descriptor::TYPE_FIXED64: {
                 if (json[j].IsUint64()) reflection->AddUInt64(&message, field, json[j].GetUint64());
             } break;
 
-            case ProtobufFieldDescriptor::TYPE_FLOAT: {
+            case protobuf_field_descriptor::TYPE_FLOAT: {
                 if (json[j].IsFloat()) reflection->AddFloat(&message, field, json[j].GetFloat());
             } break;
 
-            case ProtobufFieldDescriptor::TYPE_DOUBLE: {
+            case protobuf_field_descriptor::TYPE_DOUBLE: {
                 if (json[j].IsDouble()) reflection->AddDouble(&message, field, json[j].GetDouble());
             } break;
 
-            case ProtobufFieldDescriptor::TYPE_MESSAGE: {
-                if (json[j].IsObject()) Json2Pb(json[j], *reflection->AddMessage(&message, field));
+            case protobuf_field_descriptor::TYPE_MESSAGE: {
+                if (json[j].IsObject()) _json_to_pb(json[j], *reflection->AddMessage(&message, field));
             } break;
 
-            case ProtobufFieldDescriptor::TYPE_STRING:
-            case ProtobufFieldDescriptor::TYPE_BYTES: {
+            case protobuf_field_descriptor::TYPE_STRING:
+            case protobuf_field_descriptor::TYPE_BYTES: {
                 if (json[j].IsString()) reflection->AddString(&message, field, json[j].GetString());
             } break;
 
@@ -183,16 +207,15 @@ bool pbJsonConvert::Json2RepeatedPb(const rapidjson::Value& json, ProtobufMsg& m
     return true;
 }
 
-void pbJsonConvert::Pb2Json(const ProtobufMsg& message, rapidjson::Value& json, rapidjson::Document& doc, bool enum2str) {
+void converter::_pb_to_json(const protobuf_msg& message, rapidjson::Value& json, rapidjson::Document& doc, bool isRoot, bool enum2str) {
     auto descriptor = message.GetDescriptor();
     auto reflection = message.GetReflection();
     if (nullptr == descriptor || nullptr == descriptor) return;
 
     auto count = descriptor->field_count();
 	rapidjson::Document::AllocatorType &allocator = doc.GetAllocator(); //»ñÈ¡·ÖÅäÆ÷
-	if (_isRoot) {
+	if (isRoot) {
 		json.SetObject();
-		_isRoot = false;
 	}
 	
 
@@ -203,7 +226,7 @@ void pbJsonConvert::Pb2Json(const ProtobufMsg& message, rapidjson::Value& json, 
         if (field->is_repeated()) {
 			if (reflection->FieldSize(message, field) > 0) {
 				rapidjson::Value arrayJson(rapidjson::kArrayType);
-				RepeatedPb2Json(message, field, reflection, arrayJson, doc,enum2str);
+				_repeated_pb_to_json(message, field, reflection, arrayJson, doc,enum2str);
 				json.AddMember(rapidjson::StringRef(field->name().data()), arrayJson, allocator);
 			}
 
@@ -215,20 +238,20 @@ void pbJsonConvert::Pb2Json(const ProtobufMsg& message, rapidjson::Value& json, 
         }
 
         switch (field->type()) {
-            case ProtobufFieldDescriptor::TYPE_MESSAGE: {
-                const ProtobufMsg& tmp_message = reflection->GetMessage(message, field);
+            case protobuf_field_descriptor::TYPE_MESSAGE: {
+                const protobuf_msg& tmp_message = reflection->GetMessage(message, field);
 				if (0 != tmp_message.ByteSize()) {
 					rapidjson::Value obj(rapidjson::kObjectType);
-					Pb2Json(tmp_message, obj,doc);
+					_pb_to_json(tmp_message, obj,doc);
 					json.AddMember(rapidjson::StringRef(field->name().data()), obj, allocator);
 				}
             } break;
 
-          case ProtobufFieldDescriptor::TYPE_BOOL:
+          case protobuf_field_descriptor::TYPE_BOOL:
 				json.AddMember(rapidjson::StringRef(field->name().data()), reflection->GetBool(message, field) ? true : false, allocator);
                 break;
 				
-            case ProtobufFieldDescriptor::TYPE_ENUM: {
+            case protobuf_field_descriptor::TYPE_ENUM: {
                 auto* enum_value_desc = reflection->GetEnum(message, field);
                 if (enum2str) {
 					json.AddMember(rapidjson::StringRef(field->name().data()), rapidjson::Value(enum_value_desc->name().data(),allocator).Move(), allocator);
@@ -237,34 +260,34 @@ void pbJsonConvert::Pb2Json(const ProtobufMsg& message, rapidjson::Value& json, 
                 }
             } break;
 				
-            case ProtobufFieldDescriptor::TYPE_INT32:
-            case ProtobufFieldDescriptor::TYPE_SINT32:
-            case ProtobufFieldDescriptor::TYPE_SFIXED32:
+            case protobuf_field_descriptor::TYPE_INT32:
+            case protobuf_field_descriptor::TYPE_SINT32:
+            case protobuf_field_descriptor::TYPE_SFIXED32:
 				json.AddMember(rapidjson::StringRef(field->name().data()), reflection->GetInt32(message, field), allocator);
                 break;
 
-            case ProtobufFieldDescriptor::TYPE_UINT32:
-            case ProtobufFieldDescriptor::TYPE_FIXED32:
+            case protobuf_field_descriptor::TYPE_UINT32:
+            case protobuf_field_descriptor::TYPE_FIXED32:
 				json.AddMember(rapidjson::StringRef(field->name().data()), reflection->GetUInt32(message, field), allocator);
                 break;
 
-            case ProtobufFieldDescriptor::TYPE_INT64:
-            case ProtobufFieldDescriptor::TYPE_SINT64:
-            case ProtobufFieldDescriptor::TYPE_SFIXED64:
+            case protobuf_field_descriptor::TYPE_INT64:
+            case protobuf_field_descriptor::TYPE_SINT64:
+            case protobuf_field_descriptor::TYPE_SFIXED64:
 				json.AddMember(rapidjson::StringRef(field->name().data()), reflection->GetInt64(message, field), allocator);
                 break;
 
-            case ProtobufFieldDescriptor::TYPE_UINT64:
-            case ProtobufFieldDescriptor::TYPE_FIXED64:
+            case protobuf_field_descriptor::TYPE_UINT64:
+            case protobuf_field_descriptor::TYPE_FIXED64:
 				json.AddMember(rapidjson::StringRef(field->name().data()), reflection->GetUInt64(message, field), allocator);
                 break;
 
-            case ProtobufFieldDescriptor::TYPE_FLOAT:
+            case protobuf_field_descriptor::TYPE_FLOAT:
 				json.AddMember(rapidjson::StringRef(field->name().data()), reflection->GetFloat(message, field), allocator);
                 break;
 
-            case ProtobufFieldDescriptor::TYPE_STRING:
-            case ProtobufFieldDescriptor::TYPE_BYTES:	
+            case protobuf_field_descriptor::TYPE_STRING:
+            case protobuf_field_descriptor::TYPE_BYTES:	
 				json.AddMember(rapidjson::StringRef(field->name().data()), rapidjson::Value(reflection->GetString(message, field).data(), allocator).Move(), allocator);
                 break;
 
@@ -274,10 +297,10 @@ void pbJsonConvert::Pb2Json(const ProtobufMsg& message, rapidjson::Value& json, 
     }
 }
 
-void pbJsonConvert::RepeatedPb2Json(const ProtobufMsg& message, const ProtobufFieldDescriptor* field,
-                                   const ProtobufReflection* reflection, rapidjson::Value& json, rapidjson::Document& doc, bool enum2str) {
+void converter::_repeated_pb_to_json(const protobuf_msg& message, const protobuf_field_descriptor* field,
+                                   const protobuf_reflection* reflection, rapidjson::Value& json, rapidjson::Document& doc, bool enum2str) {
     if (nullptr == field || nullptr == reflection) {
-        Pb2Json(message, json,doc);
+        _pb_to_json(message, json,doc);
     }
 
 	json.SetArray();
@@ -285,18 +308,18 @@ void pbJsonConvert::RepeatedPb2Json(const ProtobufMsg& message, const ProtobufFi
 		rapidjson::Value tmp_json;
 		rapidjson::Value root(rapidjson::kObjectType);
         switch (field->type()) {
-            case ProtobufFieldDescriptor::TYPE_MESSAGE: {
-                const ProtobufMsg& tmp_message = reflection->GetRepeatedMessage(message, field, i);
+            case protobuf_field_descriptor::TYPE_MESSAGE: {
+                const protobuf_msg& tmp_message = reflection->GetRepeatedMessage(message, field, i);
                 if (0 != tmp_message.ByteSize()) {
-                    Pb2Json(tmp_message, root,doc);
+                    _pb_to_json(tmp_message, root,doc);
                 }
             } break;
 
-            case ProtobufFieldDescriptor::TYPE_BOOL:
+            case protobuf_field_descriptor::TYPE_BOOL:
                 tmp_json = reflection->GetRepeatedBool(message, field, i) ? true : false;
                 break;
 
-            case ProtobufFieldDescriptor::TYPE_ENUM: {
+            case protobuf_field_descriptor::TYPE_ENUM: {
                 auto* enum_value_desc = reflection->GetRepeatedEnum(message, field, i);
                 if (enum2str) {
                     tmp_json = rapidjson::Value(enum_value_desc->name().data(),doc.GetAllocator()).Move();
@@ -305,41 +328,41 @@ void pbJsonConvert::RepeatedPb2Json(const ProtobufMsg& message, const ProtobufFi
                 }
             } break;
 
-            case ProtobufFieldDescriptor::TYPE_INT32:
-            case ProtobufFieldDescriptor::TYPE_SINT32:
-            case ProtobufFieldDescriptor::TYPE_SFIXED32:
+            case protobuf_field_descriptor::TYPE_INT32:
+            case protobuf_field_descriptor::TYPE_SINT32:
+            case protobuf_field_descriptor::TYPE_SFIXED32:
                 tmp_json = reflection->GetRepeatedInt32(message, field, i);
                 break;
 
-            case ProtobufFieldDescriptor::TYPE_UINT32:
-            case ProtobufFieldDescriptor::TYPE_FIXED32:
+            case protobuf_field_descriptor::TYPE_UINT32:
+            case protobuf_field_descriptor::TYPE_FIXED32:
                 tmp_json = reflection->GetRepeatedUInt32(message, field, i);
                 break;
 
-            case ProtobufFieldDescriptor::TYPE_INT64:
-            case ProtobufFieldDescriptor::TYPE_SINT64:
-            case ProtobufFieldDescriptor::TYPE_SFIXED64:
+            case protobuf_field_descriptor::TYPE_INT64:
+            case protobuf_field_descriptor::TYPE_SINT64:
+            case protobuf_field_descriptor::TYPE_SFIXED64:
                 tmp_json = reflection->GetRepeatedInt64(message, field, i);
                 break;
 
-            case ProtobufFieldDescriptor::TYPE_UINT64:
-            case ProtobufFieldDescriptor::TYPE_FIXED64:
+            case protobuf_field_descriptor::TYPE_UINT64:
+            case protobuf_field_descriptor::TYPE_FIXED64:
                 tmp_json = reflection->GetRepeatedUInt64(message, field, i);
                 break;
 
-            case ProtobufFieldDescriptor::TYPE_FLOAT:
+            case protobuf_field_descriptor::TYPE_FLOAT:
                 tmp_json = reflection->GetRepeatedFloat(message, field, i);
                 break;
 
-            case ProtobufFieldDescriptor::TYPE_STRING:
-            case ProtobufFieldDescriptor::TYPE_BYTES:
+            case protobuf_field_descriptor::TYPE_STRING:
+            case protobuf_field_descriptor::TYPE_BYTES:
                 tmp_json = rapidjson::Value(reflection->GetRepeatedString(message, field, i).data(), doc.GetAllocator()).Move();
                 break;
 
             default:
                 break;
         }
-		if (field->type() == ProtobufFieldDescriptor::TYPE_MESSAGE) {
+		if (field->type() == protobuf_field_descriptor::TYPE_MESSAGE) {
 			json.PushBack(root, doc.GetAllocator());
 		}
 		else {

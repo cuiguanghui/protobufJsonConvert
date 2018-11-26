@@ -6,7 +6,7 @@
 #include <gtest/gtest.h>
 //#include "../pbFile/struct.pb.h"
 #include "../pbFile/person.pb.h"
-#include "pbJsonConvert.h"
+#include "pb_json_convert.h"
 using namespace std;
 
 
@@ -100,31 +100,12 @@ using namespace std;
 	 string strJson = GetTestJson();
 	 string strBackJson;
 
-	 rapidjson::Document document; 
-	 document.Parse(strJson.data()); 
-	 if (!document.HasParseError()) 
-	 {
-		 pbJsonConvert convert;
-		 Person structPerson;
-		 //json转换为pb
-		 convert.Json2Pb(document, structPerson);
-		 string rlt;
-		 //pb序列化（此处为序列话为字符串）
-		 structPerson.SerializePartialToString(&rlt);
+	 Person structPerson;
 
-		 Person pReq;
-		 //pb解析序列化后的字符串
-		 pReq.ParseFromString(rlt);
+	 //json转换为pb
+	 converter::json_to_pb(strJson, structPerson);
 
-		 rapidjson::Value root(rapidjson::kObjectType);
-		 rapidjson::Document doc;
-		 //pb转换为json
-		 convert.Pb2Json(pReq, root, doc);
-		 rapidjson::StringBuffer buffer;
-		 rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-		 root.Accept(writer);
-		 strBackJson = buffer.GetString();
-	 }
+	 converter::pb_to_json(structPerson, strBackJson);
 
 	 EXPECT_STREQ(strJson.data(), strBackJson.data());
  }
@@ -133,67 +114,19 @@ int main(int argc, _TCHAR* argv[])
 {
 	string strJson = GetTestJson();
 	cout << strJson.data() << endl;
-	//parseJson(strJson.data());
 
-	
-	rapidjson::Document document; // 定义一个Document对象
-	document.Parse(strJson.data()); // 解析，Parse()无返回值，也不会抛异常
-	if (document.HasParseError()) // 通过HasParseError()来判断解析是否成功
-	{
-		// 可通过GetParseError()取得出错代码，
-		// 注意GetParseError()返回的是一个rapidjson::ParseErrorCode类型的枚举值
-		// 使用函数rapidjson::GetParseError_En()得到错误码的字符串说明，这里的En为English简写
-		// 函数GetErrorOffset()返回出错发生的位置
-		cout << "JSON parse error:" << document.GetParseError() << ":" << document.GetErrorOffset() << endl;
-	}
-	else {
-		pbJsonConvert convert;
-		Person structPerson;
-		//json转换为pb
-		convert.Json2Pb(document, structPerson);
-		string rlt;
-		//pb序列化（此处为序列话为字符串）
-		structPerson.SerializePartialToString(&rlt);
-		cout << rlt << endl;
+	Person structPerson;
+	string rlt;
+	//json转换为pb
+	converter::json_to_pb(strJson, structPerson);
+	//pb序列化（此处为序列话为字符串）
+	structPerson.SerializePartialToString(&rlt);
+	cout << rlt << endl;
 
-		Person pReq;
-		//pb解析序列化后的字符串
-		pReq.ParseFromString(rlt);
-		cout << pReq.name() << endl;
-		cout << pReq.email() << endl;
+	string rltJson;
+	converter::pb_to_json(structPerson, rltJson);
+	cout << rltJson << endl;
 
-		rapidjson::Value root(rapidjson::kObjectType);
-		rapidjson::Document doc;
-		//pb转换为json
-		convert.Pb2Json(pReq, root, doc);
-		rapidjson::StringBuffer buffer;
-		rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-		root.Accept(writer);
-		string str = buffer.GetString();
-		cout << buffer.GetString() << endl;
-
-		//SearchRequest req;
-		////json转proto
-		//convert.Json2Message(document,req);
-		//string rlt;
-		//req.SerializePartialToString(&rlt);
-		//cout << rlt << endl;
-
-		//SearchRequest pReq;
-		//pReq.ParseFromString(rlt);
-		//cout << pReq.query() << endl;
-		//cout << pReq.page_number() << endl;
-		//cout << pReq.result_per_page() << endl;
-
-		//rapidjson::Value root(rapidjson::kObjectType);
-		//rapidjson::Document doc;
-		//convert.Message2Json(pReq, root, doc);
-		//rapidjson::StringBuffer buffer;
-		//rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-		//root.Accept(writer);
-		//string str = buffer.GetString();
-		//cout << buffer.GetString() << endl;
-	}
 
 	//protobuf 测试
 	//SearchRequest req;

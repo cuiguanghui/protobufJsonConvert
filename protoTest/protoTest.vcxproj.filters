@@ -33,7 +33,7 @@
     <ClInclude Include="..\pbFile\person.pb.h">
       <Filter>pbFile</Filter>
     </ClInclude>
-    <ClInclude Include="pbJsonConvert.h">
+    <ClInclude Include="pb_json_convert.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
@@ -50,7 +50,7 @@
     <ClCompile Include="..\pbFile\person.pb.cc">
       <Filter>pbFile</Filter>
     </ClCompile>
-    <ClCompile Include="pbJsonConvert.cpp">
+    <ClCompile Include="pb_json_convert.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
