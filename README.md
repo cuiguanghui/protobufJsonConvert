@@ -1,1 +1,2 @@
 # protobufJsonConvert
+protobuf与json相互转换，使用rapidJson解析库。同时包涵gtest
